@@ -49,6 +49,7 @@
 
 /* USER CODE BEGIN PV */
 extern DMA_HandleTypeDef hdma_usart2_tx;
+extern DMA_HandleTypeDef hdma_i2c1_rx;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -107,19 +108,31 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
   MS5607 BARO1 = BARO1_INIT();
-  ms5607_init(&BARO1);
-  HAL_GPIO_WritePin(GPIOA, LD2_Pin|GPIO_PIN_7, GPIO_PIN_SET);
+  if(ms5607_init(&BARO1)==0) {
+	  while(1) {
+		  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+		  HAL_Delay(100);
+	  }
+  }
+  HAL_GPIO_WritePin(GPIOA, LD2_Pin|GPIO_PIN_7, GPIO_PIN_RESET);
 
   float p;
   float t;
   float raw_data[3] = {0, 0, 0};
   int prev_time;
   int i = 0;
+  int j = 0;
   prev_time = HAL_GetTick();
 
-  char Buffer_Src[]="Hello\r\n";
-
   hdma_usart2_tx.XferCpltCallback=&XferCpltCallback;
+
+  char buffer[1000] = {0};
+  size_t buffer_length = 0;
+  float t_initial = 0;
+
+  char p_str[50];
+
+  huart2.Instance->CR3 |= USART_CR3_DMAT;
 
   /* USER CODE END 2 */
 
@@ -128,20 +141,18 @@ int main(void)
   while (1)
   {
 	  ms5607_prep_pressure(&BARO1, raw_data);
-	  HAL_Delay(2);
+	  HAL_Delay(3);
 
 	  ms5607_read_pressure(&BARO1, raw_data);
-	  HAL_Delay(1);
+	  HAL_Delay(3);
 
 	  ms5607_convert(&BARO1, &p, &t);
-      char p_str[50];
-      sprintf(p_str, "p: %f, t: %f\r\n", p, t);
 
-	  huart2.Instance->CR3 |= USART_CR3_DMAT;
-	  while (HAL_DMA_GetState(&hdma_usart2_tx) != HAL_DMA_STATE_READY) {
-	  }
-	  HAL_DMA_Start_IT(&hdma_usart2_tx, (uint32_t)p_str,
-			  (uint32_t)&huart2.Instance->TDR, strlen(p_str));
+
+	  if (hdma_usart2_tx.State == HAL_DMA_STATE_READY)
+	      HAL_DMA_Start_IT(&hdma_usart2_tx, (uint32_t)p_str, (uint32_t)&huart2.Instance->TDR, 35);
+
+      sprintf(p_str, "p: %f, t: %f\r\n", p, t);
 
 	  i++;
 	  if (i == 10) {
@@ -150,7 +161,6 @@ int main(void)
 
 		  i = 0;
 	  }
-
 
     /* USER CODE END WHILE */
 
