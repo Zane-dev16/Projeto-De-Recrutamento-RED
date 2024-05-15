@@ -148,6 +148,18 @@ int main(void)
 
 	  ms5607_convert(&BARO1, &p, &t);
 
+	  j++;
+	  if (j == 100) {
+
+		  if (t > t_initial + 0.5) {
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_SET);
+		  } else {
+			HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, GPIO_PIN_RESET);
+		  }
+		  j = 0;
+		  t_initial = t;
+	  }
+
 
 	  if (hdma_usart2_tx.State == HAL_DMA_STATE_READY)
 	      HAL_DMA_Start_IT(&hdma_usart2_tx, (uint32_t)p_str, (uint32_t)&huart2.Instance->TDR, 35);
